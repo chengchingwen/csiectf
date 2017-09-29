@@ -69,7 +69,7 @@ FLAG{oa11TH80wfMEs6ZflBhGF4btUcS1Ds9y}
 #+END_SRC
 
 ** pwntools [50]
-   Connect to the host, we get see that it is kind of "guess the number" game. 
+   Connect to the host, we can see that it is kind of "guess the number" game. 
    We need to guess the correct number from 1 to 50000000, so write a simple binary search.
 
 *** Code
